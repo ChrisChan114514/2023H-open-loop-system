@@ -22,6 +22,8 @@
 #define SIN_JUDGE  890
 #define FOCUS_JUDGE_3 40                                    //40个索引内（40*f0频率内），能量直接集中到三倍基波分量
 #define TYPE_JUDGE_NUM 6                                   //波形类型的削平参数
+#define PID_P -1
+
 
 extern float adcVolt[FFT_LENGTH];
 extern float PWM_frequency;
@@ -49,6 +51,8 @@ char SPR_STR[100];
 int TYPEsumA=0; 
 int TYPEsumB=0; 
 int CLKsum=0;  //记录判断的次数
+float freamp[50];                               ////获取各次谐波频率和幅角
+float pre_phase=0;
 
 struct FRE
 {
@@ -159,6 +163,38 @@ float fft_frequency_Vpp_check(uint16_t fft_index_max)				//fft测频率及峰峰值优化
 //	lcd_show_string(405,120,80,16,16,"fft_F2(Hz):",YELLOW);
 //	lcd_show_string(405,140,80,16,16,f_buff,WHITE);
 	return frequency_average;
+}
+int fft_getpeak_phase(float *inputx,float *input,float *output,u16 inlen,u8 x,u8 N,float y) //  intlen 输入数组长度，x寻找长度 主要用于计算相位
+{                                                                           
+	int i,i2;
+	u32 idex;  //不同于上一个函数中的，因为他们在不同的函数中被定义
+	float datas;
+	float sum;
+	int outlen=0;
+	for(i=0;i<inlen-x;i+=x)
+	{
+		arm_max_f32(input+i,x,&datas,&idex);   
+		if( (input[i+idex]>=input[i+idex+1])&&(input[i+idex]>=input[i+idex-1])&&( (2*datas)/FFT_LENGTH )>y)   
+		   {
+			   sum=0;   
+			   for(i2=i+idex-N;i2<i+idex+N;i2++)   
+			   {
+				   sum+=input[i2];          
+			   }        
+			   if(1.5*sum/(2*N)<datas)       
+			   {                                                                                             
+				     output[3*outlen+2] = atan2(inputx[2*(i+idex+1)+1],inputx[2*(i+idex+1)])*180/3.1415926f;				   
+				     output[3*outlen+1] = 1.0*(2*datas)/FFT_LENGTH;   //计算幅度
+					 output[3*outlen] = 1.0*f_sa*(i+idex+1)/FFT_LENGTH;//计算频率
+					 outlen++;				   
+			   }                                                                                               
+               else continue;			   
+		   }
+			
+		else continue;
+		
+	}
+	return outlen;	
 }
 
  
@@ -295,8 +331,8 @@ void fft_waveform_check_H(void)	//为信号分离H题服务的波形判断及频率测量函数   @C
 //		fft_outputbuf[sortedfft_i[0]*3]=sqrt(fft_outputbuf[sortedfft_i[0]*3]*fft_outputbuf[sortedfft_i[0]*3]+fft_outputbuf[i]*fft_outputbuf[i]);  //能量直接相加集中
 //	}
 	//printf("A1*3:%f,F1*3:%f\n",fft_outputbuf[sortedfft_i[0]*3] ,fft_frequency_Vpp_check(sortedfft_i[0])*3); //验证三倍基波分量
-	printf("A1:%f,F1:%f\n",fft_outputbuf[sortedfft_i[0]] ,F1); 
-	printf("A2:%f,F2:%f\n",fft_outputbuf[sortedfft_i[1]] ,F2); 
+//	printf("A1:%f,F1:%f\n",fft_outputbuf[sortedfft_i[0]] ,F1); 
+//	printf("A2:%f,F2:%f\n",fft_outputbuf[sortedfft_i[1]] ,F2); 
 	if (F1<F2)
 	{
 		FREa.FREC=F1;
@@ -307,8 +343,8 @@ void fft_waveform_check_H(void)	//为信号分离H题服务的波形判断及频率测量函数   @C
 		FREb.FREC=F1;
 		FREa.FREC=F2;
 	}
-	printf("aF:%fHZ\n",FREa.FREC);
-	printf("bF:%fHZ\n",FREb.FREC);
+//	printf("aF:%fHZ\n",FREa.FREC);
+//	printf("bF:%fHZ\n",FREb.FREC);
 	if (fabs(sortedfft_v[0]-sortedfft_v[1])>450) //此时AB波频率相同
 	{
 		FA3=fft_outputbuf[sortedfft_i[0]*3];
@@ -399,23 +435,13 @@ void fft_waveform_check_H(void)	//为信号分离H题服务的波形判断及频率测量函数   @C
 		SleeppMode: 3为关闭内部DAC和时钟，0为不关闭
 		optionbit|modebit: 00正弦01三角10方波11保留
 		*/
-		//初步出波 A波
-		if (FREa.TYPEpro==1) //三角
-		{
-			//GPIO连继电器,切比较器/积分器
-			AD9910_Singal_Profile_Set(0, FREa.FRECint, 37000, 0);
-		}
-		else  //sin
-		{
-			AD9910_Singal_Profile_Set(0, FREa.FRECint, 37000, 0);
-			
-		}
+
 	}
 	
-	printf("CLK:%d\n",CLKsum);
-	//UART打印及屏幕显示
-	printf("aT:%d,aF:%fHZ\n",FREa.TYPEpro,FREa.FREC);
-	printf("bT:%d,bF:%fHZ\n",FREb.TYPEpro,FREb.FREC);
+//	printf("CLK:%d\n",CLKsum);
+//	//UART打印及屏幕显示
+//	printf("aT:%d,aF:%fHZ\n",FREa.TYPEpro,FREa.FREC);
+//	printf("bT:%d,bF:%fHZ\n",FREb.TYPEpro,FREb.FREC);
 	
 
 	sprintf(SPR_STR,"aF:%3dkHZ",FREa.FRECint/1000);
@@ -431,7 +457,7 @@ void fft_waveform_check_H(void)	//为信号分离H题服务的波形判断及频率测量函数   @C
 	
 	
 	
-	printf("-------------------------------------------------\n-----------------------------------------\n----------------------------------------\n");
+//	printf("-------------------------------------------------\n-----------------------------------------\n----------------------------------------\n");
 	
 
 	
@@ -439,7 +465,8 @@ void fft_waveform_check_H(void)	//为信号分离H题服务的波形判断及频率测量函数   @C
 
 void fftCalculate(void)// FFT 计算函数
 {
-    
+		u16   freamplen; // freamp长度的一半
+		
 		if (cnt_calculate == 0)
 		{
 			for (int i = 0; i < FFT_LENGTH; i++)								//均值滤波来提高采样精度,每两个点取平均，这样就可以达到2次均值滤波
@@ -451,6 +478,27 @@ void fftCalculate(void)// FFT 计算函数
 		
 		arm_cfft_f32(&arm_cfft_sR_f32_len4096, fft_inputbuf, 0, 1);			//这边len后参数要联动FFT_LENGTH修改
 		arm_cmplx_mag_f32(fft_inputbuf, fft_outputbuf, FFT_LENGTH);
+		freamplen=fft_getpeak_phase(fft_inputbuf,fft_outputbuf+1,freamp,FFT_LENGTH/2,10,5,0.2);//寻找基波和谐波
+		
+			
+		//freamp[0] 频率 [1]幅度 [2]相位
+		//初步出波 A波
+		printf("PhaseChange:%f\n",freamp[2]-pre_phase);
+		printf("OUTF:%d\n",(uint32_t)FREa.FRECint+(uint32_t)freamp[2]-(uint32_t)pre_phase);
+		AD9910_Singal_Profile_Init();	
+		if (1==1) //FREa.TYPEpro==1//三角
+		{
+			//GPIO连继电器,切比较器/积分器
+			AD9910_Singal_Profile_Set(0, FREa.FRECint, 37000, 0);
+
+			
+			
+		}
+		else  //sin
+		{
+			AD9910_Singal_Profile_Set(0, FREa.FRECint+freamp[2]-pre_phase, 37000, 0);
+			
+		}
 		
 		fft_index_max = 1;
 		fft_index_min = 1;
@@ -463,7 +511,7 @@ void fftCalculate(void)// FFT 计算函数
 		}
 													
 		
-		fft_waveform_check_H();
+		fft_waveform_check_H();  //2022H主要计算函数
 		
 
 			cnt_calculate = 25;
@@ -472,7 +520,7 @@ void fftCalculate(void)// FFT 计算函数
 		{
 			cnt_calculate -= 1;
 		}
-		
+		pre_phase=freamp[2];
 //		printf("FFT Result:\r\n");
 //		for (int i = 0; i < FFT_LENGTH/2; i++)							//输出各次谐波幅值
 //		{

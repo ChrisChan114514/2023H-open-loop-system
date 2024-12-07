@@ -61,7 +61,7 @@ extern void Write_32bit(uint32_t dat)	;
 extern void AD9910_Init(void);
 
 extern void AD9910_Singal_Profile_Init(void);
-extern void AD9910_Singal_Profile_Set(uint8_t addr,uint32_t Freq,uint16_t Amp ,uint16_t Pha);
+extern void AD9910_Singal_Profile_Set(uint8_t addr,double Freq,uint16_t Amp ,uint16_t Pha);
 extern void Set_Profile(uint8_t num);
 
 extern void AD9910_Osk_Init(void);

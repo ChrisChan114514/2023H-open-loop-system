@@ -891,7 +891,7 @@ void AD9910_Parallel_Profile_Set()
 //						Pha								????е???λ????							(0--360??)
 //???????:??
 //---------------------------------------------------------------------------------------------------------------------------------
-void AD9910_Singal_Profile_Set(uint8_t addr,uint32_t Freq,uint16_t Amp ,uint16_t Pha)
+void AD9910_Singal_Profile_Set(uint8_t addr,double Freq,uint16_t Amp ,uint16_t Pha)      //Freq只能整数，改为double
 {
 	  uint32_t Temp_Fre,Temp_Amp,Temp_Pha; 
 		uint8_t  Temp_addr;
